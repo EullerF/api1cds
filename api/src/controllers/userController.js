@@ -1,4 +1,5 @@
 let users = [];
+const connect = require("../db/connect")
 
 module.exports = class userController {
   static async createUser(req, res) {
@@ -14,9 +15,22 @@ module.exports = class userController {
     }
     const newUser = { cpf, email, password, name };
     users.push(newUser);
-    return res
-      .status(201)
-      .json({ message: "Usuário cadastrado", user: newUser });
+    const query = `INSERT INTO user (cpf,password,email,name) VALUES(
+    '${cpf}','${password}','${email}','${name}')`
+
+    // Executar a query INSERT
+    connect.query(query, function(err){
+      if(err){
+        console.log(err)
+        return res.status(500).json({error: "Usuário não cadastrado no banco"});
+      }
+      console.log("Inserido no Mysql");
+      res.status(201).json({message:"Usuário criado com sucesso"});
+    })
+
+    // return res
+    //   .status(201)
+    //   .json({ message: "Usuário cadastrado", user: newUser });
   }
   static async readUsers(req, res) {
     return res
@@ -54,14 +68,14 @@ module.exports = class userController {
       (user) => user.cpf === identificadorUsuario
     );
     // Se o usuário não for encontrado (userIndex será -1), retorna uma resposta de erro
-    if (userIndex === -1){
-      return res.status(404).json({error: "Usuário não encontrado"})
+    if (userIndex === -1) {
+      return res.status(404).json({ error: "Usuário não encontrado" })
     }
 
     //Remove o usuário do array 'users' usando a funcionalidade splice, que deleta o item no indice encontrado
-    users.splice(userIndex,1);
+    users.splice(userIndex, 1);
 
     // Retorna 200, informando que o usuário foi deletado
-    return res.status(200).json({message:"Usuário excluído com sucesso"});
+    return res.status(200).json({ message: "Usuário excluído com sucesso" });
   }
 };
