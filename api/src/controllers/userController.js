@@ -1,81 +1,178 @@
-let users = [];
-const connect = require("../db/connect")
+const connect = require("../db/connect");
+const bcrypt = require("bcrypt");
+const SALT_ROUNDS = 10; // Número de rounds para gerar o hash
 
 module.exports = class userController {
   static async createUser(req, res) {
-    const { cpf, email, password, name } = req.body;
-    if (!cpf || !email || !password || !name) {
+    const { cpf, nome, email, senha, telefone, data_nascimento } = req.body;
+
+    // Validação de campos obrigatórios
+    if (!cpf || !nome || !email || !senha || !telefone || !data_nascimento) {
       return res
         .status(400)
         .json({ error: "Todos os campos devem ser preenchidos" });
     }
-    const existingUser = users.find((user) => user.cpf === cpf);
-    if (existingUser) {
-      return res.status(400).json({ error: "CPF já cadastrado" });
+
+    // Validações específicas
+    if (isNaN(cpf) || cpf.length !== 11) {
+      return res
+        .status(400)
+        .json({ error: "CPF inválido. Deve conter 11 dígitos numéricos" });
+    } else if (!email.includes("@")) {
+      return res.status(400).json({ error: "Email inválido. Deve conter @" });
+    } else if (isNaN(telefone) || telefone.length !== 11) {
+      return res
+        .status(400)
+        .json({ error: "Telefone inválido. Deve conter 11 dígitos numéricos" });
     }
-    const newUser = { cpf, email, password, name };
-    users.push(newUser);
-    const query = `INSERT INTO user (cpf,password,email,name) VALUES(
-    '${cpf}','${password}','${email}','${name}')`
 
-    // Executar a query INSERT
-    connect.query(query, function(err){
-      if(err){
-        console.log(err)
-        return res.status(500).json({error: "Usuário não cadastrado no banco"});
-      }
-      console.log("Inserido no Mysql");
-      res.status(201).json({message:"Usuário criado com sucesso"});
-    })
+    // Criptografar a senha antes de salvar
+      const hashedPassword = await bcrypt.hash(senha, SALT_ROUNDS);
 
-    // return res
-    //   .status(201)
-    //   .json({ message: "Usuário cadastrado", user: newUser });
+    // Query de inserção
+    const query = `
+    INSERT INTO usuario (cpf, nome, email, senha, telefone, data_nascimento)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `;
+    const values = [cpf, nome, email, hashedPassword, telefone, data_nascimento];
+
+    try {
+      connect.query(query, values, (err) => {
+        if (err) {
+          if (err.code === "ER_DUP_ENTRY") {
+            return res
+              .status(400)
+              .json({ error: "CPF ou email já cadastrado" });
+          }
+          console.error(err);
+          return res.status(500).json({ error: "Erro interno do servidor" });
+        }
+
+        return res.status(201).json({ message: "Usuário criado com sucesso" });
+      });
+    } catch (error) {
+      console.error("Erro ao executar a consulta:", error);
+      return res.status(500).json({ error: "Erro interno do servidor" });
+    }
   }
+
   static async readUsers(req, res) {
-    return res
-      .status(200)
-      .json({ message: "Aqui estão os usuários", users: users });
+    const query = `SELECT * FROM usuario`;
+    try {
+      connect.query(query, function (err, results) {
+        if (err) {
+          console.log(err);
+          return res.status(500).json({ error: "Erro interno do servidor" });
+        }
+        return res
+          .status(200)
+          .json({ message: "Obtendo todos os usuários", users: results });
+      });
+    } catch (error) {
+      console.log(error);
+      return res.status(500).json({ error: "Erro interno do servidor" });
+    }
   }
 
   static async updateUser(req, res) {
-    const { cpf, email, password, name } = req.body;
-    if (!cpf || !email || !password || !name) {
+    const cpf = req.params.cpf;
+    const { nome, email, senha, telefone, data_nascimento } = req.body;
+
+    if (!nome || !email || !senha || !telefone || !data_nascimento) {
       return res
         .status(400)
         .json({ error: "Todos os campos devem ser preenchidos" });
     }
-    // Procura o indice do Array que atende a condição
-    const userIndex = users.findIndex((user) => user.cpf === cpf);
 
-    // Se o usuário não for encontrado o findIndex retorna (-1)
-    if (userIndex === -1) {
-      return res.status(404).json({ error: "Usuário não encontrado" });
+    // Criptografar a senha antes de salvar
+      const hashedPassword = await bcrypt.hash(senha, SALT_ROUNDS);
+
+    const query = `
+    UPDATE usuario 
+    SET nome = ?, email = ?, senha = ?, telefone = ?, data_nascimento = ?
+    WHERE cpf = ?
+  `;
+    const values = [nome, email, hashedPassword, telefone, data_nascimento, cpf];
+
+    try {
+      connect.query(query, values, (err, results) => {
+        if (err) {
+          console.error(err);
+          return res.status(500).json({ error: "Erro interno do servidor" });
+        }
+
+        if (results.affectedRows === 0) {
+          return res.status(404).json({ error: "Usuário não encontrado" });
+        }
+
+        return res
+          .status(200)
+          .json({ message: `Usuário com CPF ${cpf} atualizado com sucesso` });
+      });
+    } catch (error) {
+      console.error("Erro ao executar a consulta:", error);
+      return res.status(500).json({ error: "Erro interno do servidor" });
     }
-
-    users[userIndex] = { cpf, name, password, email };
-
-    return res
-      .status(200)
-      .json({ message: "O usuário foi atualizado", user: users[userIndex] });
   }
 
   static async deleteUser(req, res) {
-    const identificadorUsuario = req.params.cpf
+    const cpf = req.params.cpf;
 
-    // Procura o indice do usuário no array 'users' pelo cpf
-    const userIndex = users.findIndex(
-      (user) => user.cpf === identificadorUsuario
-    );
-    // Se o usuário não for encontrado (userIndex será -1), retorna uma resposta de erro
-    if (userIndex === -1) {
-      return res.status(404).json({ error: "Usuário não encontrado" })
+    const query = `DELETE FROM usuario WHERE cpf = ?`;
+    const values = [cpf];
+
+    try {
+      connect.query(query, values, (err, results) => {
+        if (err) {
+          console.error(err);
+          return res.status(500).json({ error: "Erro interno do servidor" });
+        }
+
+        if (results.affectedRows === 0) {
+          return res.status(404).json({ error: "Usuário não encontrado" });
+        }
+
+        return res
+          .status(200)
+          .json({ message: `Usuário com CPF ${cpf} excluído com sucesso` });
+      });
+    } catch (error) {
+      console.error("Erro ao executar a consulta:", error);
+      return res.status(500).json({ error: "Erro interno do servidor" });
+    }
+  }
+
+  static async loginUser(req, res) {
+    const { email, senha } = req.body;
+    if (!email || !senha) {
+      return res.status(400).json({ error: "Email e senha são obrigatórios" });
     }
 
-    //Remove o usuário do array 'users' usando a funcionalidade splice, que deleta o item no indice encontrado
-    users.splice(userIndex, 1);
+    const query = `SELECT * FROM usuario WHERE email = ?`;
 
-    // Retorna 200, informando que o usuário foi deletado
-    return res.status(200).json({ message: "Usuário excluído com sucesso" });
+    try {
+      connect.query(query, [email], async (err, results) => {
+        if (err) {
+          console.error("Erro ao executar a consulta", err);
+          return res.status(500).json({ error: "Erro interno do servidor" });
+        }
+        if (results.length === 0) {
+          return res.status(401).json({ error: "Usuário não cadastrado" });
+        }
+        const user = results[0];
+
+        // Compara a senha informada no Login com o hash do banco
+        const senhaCorreta = await bcrypt.compare(senha, user.senha);
+
+        if (!senhaCorreta) {
+          return res.status(401).json({ error: "Senha incorreta" });
+        }
+
+        return res.status(200).json({ message: "Login bem-sucedido", user });
+      });
+    } catch (error) {
+      console.error("Erro ao executar consulta", error);
+      return res.status(500).json({ error: " Erro interno do servidor " });
+    }
   }
 };
