@@ -1,5 +1,6 @@
 const express = require("express"); // Importa o módulo Express
 const testConnect = require("./db/testConnect");
+const cors = require("cors");
 
 class AppController {
   constructor() {
@@ -12,12 +13,13 @@ class AppController {
   middlewares() {
     // Permite que a applicação receba dados em formato JSON nas requisições
     this.express.use(express.json());
+    this.express.use(cors());
   }
 
   // Nós definimos as nossas ROTAS
   routes() {
-    const apiRoutes = require('./routes/apiRoutes')
-    this.express.use('/api/v1/',apiRoutes)
+    const apiRoutes = require("./routes/apiRoutes");
+    this.express.use("/api/v1/", apiRoutes);
   }
 }
 // Exporta a instância do Express já configurada acima, tornando-a acessível em outros arquivos

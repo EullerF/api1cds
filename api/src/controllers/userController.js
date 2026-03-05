@@ -4,7 +4,13 @@ const SALT_ROUNDS = 10; // Número de rounds para gerar o hash
 
 module.exports = class userController {
   static async createUser(req, res) {
-    const { cpf, nome, email, senha, telefone, data_nascimento } = req.body;
+    const { 
+       cpf,
+       nome,
+       email,
+       senha,
+    telefone,
+    data_nascimento } = req.body;
 
     // Validação de campos obrigatórios
     if (!cpf || !nome || !email || !senha || !telefone || !data_nascimento) {
@@ -143,15 +149,15 @@ module.exports = class userController {
   }
 
   static async loginUser(req, res) {
-    const { email, senha } = req.body;
-    if (!email || !senha) {
-      return res.status(400).json({ error: "Email e senha são obrigatórios" });
+    const { cpf, senha } = req.body;
+    if (!cpf || !senha) {
+      return res.status(400).json({ error: "CPF e senha são obrigatórios" });
     }
 
-    const query = `SELECT * FROM usuario WHERE email = ?`;
+    const query = `SELECT * FROM usuario WHERE cpf = ?`;
 
     try {
-      connect.query(query, [email], async (err, results) => {
+      connect.query(query, [cpf], async (err, results) => {
         if (err) {
           console.error("Erro ao executar a consulta", err);
           return res.status(500).json({ error: "Erro interno do servidor" });
