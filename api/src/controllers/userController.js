@@ -1,55 +1,50 @@
 const connect = require("../db/connect");
 const bcrypt = require("bcrypt");
+const validateUser = require("../services/validateUser");
+const validateCpf = require("../services/validateCpf");
+const validateEmail = require("../services/validateEmail");
+
 const SALT_ROUNDS = 10; // Número de rounds para gerar o hash
 
 module.exports = class userController {
   static async createUser(req, res) {
-    const { 
-       cpf,
-       nome,
-       email,
-       senha,
-    telefone,
-    data_nascimento } = req.body;
+    const { cpf, nome, email, senha, telefone, data_nascimento } = req.body;
 
-    // Validação de campos obrigatórios
-    if (!cpf || !nome || !email || !senha || !telefone || !data_nascimento) {
-      return res
-        .status(400)
-        .json({ error: "Todos os campos devem ser preenchidos" });
-    }
-
-    // Validações específicas
-    if (isNaN(cpf) || cpf.length !== 11) {
-      return res
-        .status(400)
-        .json({ error: "CPF inválido. Deve conter 11 dígitos numéricos" });
-    } else if (!email.includes("@")) {
-      return res.status(400).json({ error: "Email inválido. Deve conter @" });
-    } else if (isNaN(telefone) || telefone.length !== 11) {
-      return res
-        .status(400)
-        .json({ error: "Telefone inválido. Deve conter 11 dígitos numéricos" });
+    const validationError = validateUser(req.body);
+    if (validationError) {
+      return res.status(400).json(validationError);
     }
 
     // Criptografar a senha antes de salvar
-      const hashedPassword = await bcrypt.hash(senha, SALT_ROUNDS);
+    const hashedPassword = await bcrypt.hash(senha, SALT_ROUNDS);
 
     // Query de inserção
     const query = `
     INSERT INTO usuario (cpf, nome, email, senha, telefone, data_nascimento)
     VALUES (?, ?, ?, ?, ?, ?)
   `;
-    const values = [cpf, nome, email, hashedPassword, telefone, data_nascimento];
+    const values = [
+      cpf,
+      nome,
+      email,
+      hashedPassword,
+      telefone,
+      data_nascimento,
+    ];
 
     try {
+      const cpfError = await validateCpf(cpf);
+      if (cpfError) {
+        return res.status(400).json(cpfError);
+      }
+
+      const emailError = await validateEmail(email, cpf);
+      if (emailError) {
+        return res.status(400).json(emailError);
+      }
+
       connect.query(query, values, (err) => {
         if (err) {
-          if (err.code === "ER_DUP_ENTRY") {
-            return res
-              .status(400)
-              .json({ error: "CPF ou email já cadastrado" });
-          }
           console.error(err);
           return res.status(500).json({ error: "Erro interno do servidor" });
         }
@@ -84,23 +79,34 @@ module.exports = class userController {
     const cpf = req.params.cpf;
     const { nome, email, senha, telefone, data_nascimento } = req.body;
 
-    if (!nome || !email || !senha || !telefone || !data_nascimento) {
-      return res
-        .status(400)
-        .json({ error: "Todos os campos devem ser preenchidos" });
+    const validationError = validateUser(req.body);
+    if (validationError) {
+      return res.status(400).json(validationError);
     }
 
     // Criptografar a senha antes de salvar
-      const hashedPassword = await bcrypt.hash(senha, SALT_ROUNDS);
+    const hashedPassword = await bcrypt.hash(senha, SALT_ROUNDS);
 
     const query = `
     UPDATE usuario 
     SET nome = ?, email = ?, senha = ?, telefone = ?, data_nascimento = ?
     WHERE cpf = ?
   `;
-    const values = [nome, email, hashedPassword, telefone, data_nascimento, cpf];
+    const values = [
+      nome,
+      email,
+      hashedPassword,
+      telefone,
+      data_nascimento,
+      cpf,
+    ];
 
     try {
+      const emailError = await validateEmail(email, cpf);
+      if (emailError) {
+        return res.status(400).json(emailError);
+      }
+
       connect.query(query, values, (err, results) => {
         if (err) {
           console.error(err);
