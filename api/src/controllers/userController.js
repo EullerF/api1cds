@@ -3,6 +3,7 @@ const bcrypt = require("bcrypt");
 const validateUser = require("../services/validateUser");
 const validateCpf = require("../services/validateCpf");
 const validateEmail = require("../services/validateEmail");
+const jwt = require("jsonwebtoken");
 
 const SALT_ROUNDS = 10; // Número de rounds para gerar o hash
 
@@ -59,6 +60,7 @@ module.exports = class userController {
 
   static async readUsers(req, res) {
     const query = `SELECT * FROM usuario`;
+
     try {
       connect.query(query, function (err, results) {
         if (err) {
@@ -129,7 +131,7 @@ module.exports = class userController {
 
   static async deleteUser(req, res) {
     const cpf = req.params.cpf;
-
+    // Verificar se req.userId tem autorização para deletar
     const query = `DELETE FROM usuario WHERE cpf = ?`;
     const values = [cpf];
 
@@ -178,9 +180,18 @@ module.exports = class userController {
 
         if (!senhaCorreta) {
           return res.status(401).json({ error: "Senha incorreta" });
-        }
+        } else {
+          const token = jwt.sign({ cpf: user.cpf }, process.env.SECRET, {
+            expiresIn: "1h",
+          });
 
-        return res.status(200).json({ message: "Login bem-sucedido", user });
+          // Remover o atributo senha do objeto user
+          delete user.senha;
+
+          return res
+            .status(200)
+            .json({ message: "Login bem-sucedido", user, token });
+        }
       });
     } catch (error) {
       console.error("Erro ao executar consulta", error);

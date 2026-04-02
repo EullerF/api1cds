@@ -3,10 +3,11 @@ const userController = require("../controllers/userController");
 const organizadorController = require("../controllers/organizadorController");
 const eventoController = require("../controllers/eventoController");
 const ingressoController = require('../controllers/ingressoController');
+const verifyJWT = require("../middlewares/verifyJWT");
 
 // Rotas para usuário
 router.post("/user", userController.createUser);
-router.get("/user", userController.readUsers);
+router.get("/user",verifyJWT, userController.readUsers);
 router.put("/user/:cpf", userController.updateUser);
 router.delete("/user/:cpf", userController.deleteUser);
 router.post("/login", userController.loginUser);
