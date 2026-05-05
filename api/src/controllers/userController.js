@@ -134,7 +134,10 @@ module.exports = class userController {
     // Verificar se req.userId tem autorização para deletar
     const query = `DELETE FROM usuario WHERE cpf = ?`;
     const values = [cpf];
+    const cpf_usuario_que_esta_tentanto_apagar = req.userId
+    if (cpf_usuario_que_esta_tentanto_apagar === cpf){
 
+    
     try {
       connect.query(query, values, (err, results) => {
         if (err) {
@@ -148,12 +151,16 @@ module.exports = class userController {
 
         return res
           .status(200)
-          .json({ message: `Usuário com CPF ${cpf} excluído com sucesso` });
+          .json({ message: `Usuário com CPF ${cpf} excluído com sucesso` , userDelete:true});
       });
     } catch (error) {
       console.error("Erro ao executar a consulta:", error);
       return res.status(500).json({ error: "Erro interno do servidor" });
     }
+  }
+  else{
+  return res.status(401).json({error:"Você não pode apagar esse usuário"})
+  }
   }
 
   static async loginUser(req, res) {
@@ -182,7 +189,7 @@ module.exports = class userController {
           return res.status(401).json({ error: "Senha incorreta" });
         } else {
           const token = jwt.sign({ cpf: user.cpf }, process.env.SECRET, {
-            expiresIn: "1h",
+            expiresIn: "30s",
           });
 
           // Remover o atributo senha do objeto user

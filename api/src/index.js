@@ -3,6 +3,7 @@ require("dotenv-safe").config();
 const testConnect = require("./db/testConnect");
 const cors = require("cors");
 const jwt =  require("jsonwebtoken")
+require("./cron")
 
 class AppController {
   constructor() {
